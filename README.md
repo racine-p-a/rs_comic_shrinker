@@ -1,0 +1,1 @@
+# rs_cmoic_shrinker
