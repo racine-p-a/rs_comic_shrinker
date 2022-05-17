@@ -6,3 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+unrar = "0.4.4"
+zip = "0.6.2"
+walkdir = "2.3.2"
