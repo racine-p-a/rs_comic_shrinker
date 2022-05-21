@@ -4,12 +4,14 @@ use std::fs::File;
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use rand::Rng;
 
 
 extern crate unrar;
 use unrar::Archive;
 use walkdir::{DirEntry, WalkDir};
 use image::*;
+use unrar::archive::Entry;
 use webp::{Encoder, WebPMemory};
 use zip::result::ZipError;
 use zip::write::FileOptions;
@@ -52,20 +54,43 @@ fn main() {
     println!("extension fichier source : {}", fichier_source_extension);
     println!("nom fichier source : {}", fichier_source_nom);
     println!("dossier fichier source : {}", fichier_source_dossier);
-    println!("chamin complet fichier source : {}", fichier_source_chemin_absolu);
+    println!("chemin complet fichier source : {}", fichier_source_chemin_absolu);
     if !fichier_source.exists() { println!("Le fichier n'existe pas"); return;}
     if !formats_entrants_acceptes.contains(&&**&fichier_source_extension){ println!("Extension entrante non autorisée"); return; }
     println!("le fichier peut être décompressé");
     match fichier_source_extension.as_str() {
          "cb7" => println!("cb7"),
-         "cbr" => extraire_archive_RAR(&fichier_source_chemin_absolu, &fichier_source_dossier),
+         "cbr" => compresser_images(extraire_archive_rar(&fichier_source_chemin_absolu, &fichier_source_dossier)),
          "cbz" => println!("cbz"),
          _ => println!("Extension entrante inconnue... encore ?"),
     }
 }
 
-fn extraire_archive_RAR(archive: &String, dossier_sortie: &String) {
-    Archive::new(archive.to_string()).extract_to(dossier_sortie.parse().unwrap()).unwrap().process().unwrap();
+fn compresser_images(donnees_extraction: (String, Vec<Entry>)) {
+    println!("chemin complet fichier source : {:?}", donnees_extraction);
+}
+
+
+fn extraire_archive_rar(archive: &String, dossier_sortie: &String) -> (String, Vec<Entry>) {
+    let chaine_aleatoire = chaine_aleatoire(10);
+    return (
+        String::from(Path::new(dossier_sortie).join(&chaine_aleatoire).to_str().unwrap()),
+        Archive::new(archive.to_string()).extract_to(String::from(Path::new(dossier_sortie).join(&chaine_aleatoire).to_str().unwrap()).parse().unwrap()).unwrap().process().unwrap()
+    );
+}
+
+fn chaine_aleatoire(taille: i32) -> String {
+    const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
+    let mut rng = rand::thread_rng();
+
+    let password: String = (0..taille)
+        .map(|_| {
+            let idx = rng.gen_range(0..CHARSET.len());
+            CHARSET[idx] as char
+        })
+        .collect();
+
+    return password;
 }
 
 fn chemin_absolu_fichier(fichier: &Path) -> String {
