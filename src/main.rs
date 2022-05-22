@@ -19,6 +19,7 @@ use zip::write::FileOptions;
 
 extern crate zip;
 extern crate walkdir;
+extern crate core;
 
 const METHOD_STORED : Option<zip::CompressionMethod> = Some(zip::CompressionMethod::Stored);
 
@@ -46,7 +47,7 @@ fn main() {
 
     let extension_fichier_sortant:String = args[2].clone();
     let format_des_images:String = args[3].clone();
-    let compression_des_images:String = args[4].clone();
+    let compression_des_images:f32 = args[4].clone().parse::<f32>().unwrap();
 
     // EXTRACTION DE L'ARCHIVE
     let fichier_source_extension:String = extension_fichier(&fichier_source);
@@ -57,21 +58,78 @@ fn main() {
     if !formats_entrants_acceptes.contains(&&**&fichier_source_extension){ println!("Extension entrante non autorisée"); return; }
     match fichier_source_extension.as_str() {
          "cb7" => println!("cb7"),
-         "cbr" => compresser_images(&format_des_images, &compression_des_images, extraire_archive_rar(&fichier_source_chemin_absolu, &fichier_source_dossier), &fichier_source_nom),
+         "cbr" => compresser_dossier(&extension_fichier_sortant, &compresser_images(&format_des_images, &compression_des_images, extraire_archive_rar(&fichier_source_chemin_absolu, &fichier_source_dossier), &fichier_source_nom)),
          "cbz" => println!("cbz"),
          _ => println!("Extension entrante inconnue... encore ?"),
     }
 }
 
-fn compresser_images(format_des_images: &String, compression_des_images: &String, donnees_extraction: (String, Vec<Entry>), nom_archive: &String) {
-    //println!("donnees extraction : {:?}", donnees_extraction);
-    match format_des_images.as_str() {
-        "webp" => convertir_en_webp(&donnees_extraction.0, &compression_des_images, &nom_archive),
-        _ => println!("Format d'image inconnu"),
+fn compresser_dossier(extension_fichier_sortant: &String, dossier_a_compresser: &PathBuf) {
+    for &method in [METHOD_STORED, METHOD_DEFLATED, METHOD_BZIP2].iter() {
+        if method.is_none() { continue }
+        match doit(dossier_a_compresser.to_str().unwrap(), dossier_a_compresser.with_extension(extension_fichier_sortant).to_str().unwrap(), method.unwrap()) {
+            Ok(_) => println!("done: {} written to {}", dossier_a_compresser.to_str().unwrap(), dossier_a_compresser.with_extension(extension_fichier_sortant).to_str().unwrap()),
+            Err(e) => println!("Error: {:?}", e),
+        }
     }
+    // todo supprimer les deux dossiers temporaires
 }
 
-fn convertir_en_webp(dossier_parent:&String, compression: &String, nom_archive: &String) {
+fn doit(src_dir: &str, dst_file: &str, method: zip::CompressionMethod) -> zip::result::ZipResult<()> {
+    if !Path::new(src_dir).is_dir() {
+        return Err(ZipError::FileNotFound);
+    }
+    let path = Path::new(dst_file);
+    let file = File::create(&path).unwrap();
+    let walkdir = WalkDir::new(src_dir.to_string());
+    let it = walkdir.into_iter();
+    zip_dir(&mut it.filter_map(|e| e.ok()), src_dir, file, method)?;
+    Ok(())
+}
+
+fn zip_dir<T>(it: &mut dyn Iterator<Item=DirEntry>, prefix: &str, writer: T, method: zip::CompressionMethod)
+              -> zip::result::ZipResult<()>
+    where T: Write+Seek
+{
+    let mut zip = zip::ZipWriter::new(writer);
+    let options = FileOptions::default()
+        .compression_method(method)
+        .unix_permissions(0o755);
+    let mut buffer = Vec::new();
+    for entry in it {
+        let path = entry.path();
+        let name = path.strip_prefix(Path::new(prefix)).unwrap();
+        // Write file or directory explicitly
+        // Some unzip tools unzip files with directory paths correctly, some do not!
+        if path.is_file() {
+            println!("adding file {:?} as {:?} ...", path, name);
+            zip.start_file_from_path(name, options)?;
+            let mut f = File::open(path)?;
+            f.read_to_end(&mut buffer)?;
+            zip.write_all(&*buffer)?;
+            buffer.clear();
+        } else if name.as_os_str().len() != 0 {
+            // Only if not root! Avoids path spec / warning
+            // and mapname conversion failed error on unzip
+            println!("adding dir {:?} as {:?} ...", path, name);
+            zip.add_directory_from_path(name, options)?;
+        }
+    }
+    zip.finish()?;
+    Result::Ok(())
+}
+
+
+fn compresser_images(format_des_images: &String, compression_des_images: &f32, donnees_extraction: (String, Vec<Entry>), nom_archive: &String) -> PathBuf {
+    //println!("donnees extraction : {:?}", donnees_extraction);
+    let data = match format_des_images.as_str() {
+        "webp" => convertir_en_webp(&donnees_extraction.0, &compression_des_images, &nom_archive),
+        _ => panic!("Erreur d'ouverture du fichier : "),
+    };
+    return data;
+}
+
+fn convertir_en_webp(dossier_parent:&String, compression: &&f32, nom_archive: &String) -> PathBuf {
     // Créons le dossier cible
     let dossier_cible = Path::new(&dossier_parent).parent().unwrap().join(nom_archive);
 
@@ -81,9 +139,11 @@ fn convertir_en_webp(dossier_parent:&String, compression: &String, nom_archive: 
             convertir_une_image_en_webp(&entry.path(), &dossier_cible, &compression);
         }
     }
+    return dossier_cible;
+
 }
 
-fn convertir_une_image_en_webp(image_a_convertir: &Path, dossier_cible: &Path, compression: &String) {
+fn convertir_une_image_en_webp(image_a_convertir: &Path, dossier_cible: &Path, compression: &f32) {
     // Chheck if target folder already exists, if not, web will refuse to convert.
     if !dossier_cible.exists() { fs::create_dir_all(dossier_cible); }
     let nom_fichier_cible = Path::new(image_a_convertir).file_stem().unwrap().to_str().unwrap();
@@ -104,35 +164,9 @@ fn convertir_une_image_en_webp(image_a_convertir: &Path, dossier_cible: &Path, c
     // Create the WebP encoder for the above image
     let encoder: Encoder = Encoder::from_image(&img).unwrap();
     // Encode the image at a specified quality 0-100
-    let webp: WebPMemory = encoder.encode(5f32);
+    let webp: WebPMemory = encoder.encode(*compression);
     // Define and write the WebP-encoded file to a given path
-    println!("fichier cible : {:?}", nom_fichier_cible);
-    std::fs::write(chemin_absolu_vers_image_cible, &*webp).unwrap();
-
-    // let fichier_source_chemin_complet = entry.path();
-    // let fichier_source_chemin_complet_string = fichier_source_chemin_complet.file_name().unwrap().to_str().unwrap();
-    // let nom_fichier_source = entry.file_name().to_str().unwrap();
-    // let nom_fichier_source_sans_extension = entry.path().file_stem().unwrap().to_str().unwrap();
-    // if fichier_source_chemin_complet_string.ends_with(".jpeg") || fichier_source_chemin_complet_string.ends_with(".jpg") {
-    //     let img = image::open(entry.into_path()).unwrap();
-    //     let (w,h) = img.dimensions();
-    //     // Optionally, resize the existing photo and convert back into DynamicImage
-    //     let size_factor = 1.0;
-    //     let img: DynamicImage = image::DynamicImage::ImageRgba8(imageops::resize(
-    //         &img,
-    //         (w as f64 * size_factor) as u32,
-    //         (h as f64 * size_factor) as u32,
-    //         imageops::FilterType::Triangle,
-    //     ));
-    //     // Create the WebP encoder for the above image
-    //     let encoder: Encoder = Encoder::from_image(&img).unwrap();
-    //     // Encode the image at a specified quality 0-100
-    //     let webp: WebPMemory = encoder.encode(5f32);
-    //     // Define and write the WebP-encoded file to a given path
-    //     //let output_path = Path::new(&entry.path().parent().unwrap().to_str()).join(entry.file_name());
-    //     let output_path = Path::new(dossier_cible.as_path()).join(nom_fichier_source_sans_extension).with_extension("webp");
-    //     println!("fichier de sortie {:?}", output_path);
-    //     //std::fs::write(&output_path, &*webp).unwrap();
+    fs::write(chemin_absolu_vers_image_cible, &*webp).unwrap();
 }
 
 
@@ -148,14 +182,13 @@ fn chaine_aleatoire(taille: i32) -> String {
     const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
     let mut rng = rand::thread_rng();
 
-    let password: String = (0..taille)
+    let random_string: String = (0..taille)
         .map(|_| {
             let idx = rng.gen_range(0..CHARSET.len());
             CHARSET[idx] as char
         })
         .collect();
-
-    return password;
+    return random_string;
 }
 
 fn chemin_absolu_fichier(fichier: &Path) -> String {
@@ -210,56 +243,9 @@ fn dossier_fichier(fichier: &Path) -> String {
 // }
 //
 //
-// fn doit(src_dir: &str, dst_file: &str, method: zip::CompressionMethod) -> zip::result::ZipResult<()> {
-//     if !Path::new(src_dir).is_dir() {
-//         return Err(ZipError::FileNotFound);
-//     }
 //
-//     let path = Path::new(dst_file);
-//     let file = File::create(&path).unwrap();
 //
-//     let walkdir = WalkDir::new(src_dir.to_string());
-//     let it = walkdir.into_iter();
 //
-//     zip_dir(&mut it.filter_map(|e| e.ok()), src_dir, file, method)?;
-//
-//     Ok(())
-// }
-//
-// fn zip_dir<T>(it: &mut dyn Iterator<Item=DirEntry>, prefix: &str, writer: T, method: zip::CompressionMethod)
-//               -> zip::result::ZipResult<()>
-//     where T: Write+Seek
-// {
-//     let mut zip = zip::ZipWriter::new(writer);
-//     let options = FileOptions::default()
-//         .compression_method(method)
-//         .unix_permissions(0o755);
-//
-//     let mut buffer = Vec::new();
-//     for entry in it {
-//         let path = entry.path();
-//         let name = path.strip_prefix(Path::new(prefix)).unwrap();
-//
-//         // Write file or directory explicitly
-//         // Some unzip tools unzip files with directory paths correctly, some do not!
-//         if path.is_file() {
-//             println!("adding file {:?} as {:?} ...", path, name);
-//             zip.start_file_from_path(name, options)?;
-//             let mut f = File::open(path)?;
-//
-//             f.read_to_end(&mut buffer)?;
-//             zip.write_all(&*buffer)?;
-//             buffer.clear();
-//         } else if name.as_os_str().len() != 0 {
-//             // Only if not root! Avoids path spec / warning
-//             // and mapname conversion failed error on unzip
-//             println!("adding dir {:?} as {:?} ...", path, name);
-//             zip.add_directory_from_path(name, options)?;
-//         }
-//     }
-//     zip.finish()?;
-//     Result::Ok(())
-// }
 //
 //
 
