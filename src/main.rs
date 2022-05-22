@@ -1,4 +1,5 @@
-use std::env;
+use std::{env, fs};
+use std::borrow::Borrow;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{Read, Seek, Write};
@@ -34,6 +35,7 @@ const METHOD_BZIP2 : Option<zip::CompressionMethod> = None;
 
 
 fn main() {
+    env::set_var("RUST_BACKTRACE", "full");
     let formats_entrants_acceptes = ["cb7", "cbr", "cbz"];
     let formats_sortants_acceptes = ["cb7", "cbz"];
 
@@ -51,23 +53,86 @@ fn main() {
     let fichier_source_nom:String = nom_fichier(&fichier_source);
     let fichier_source_chemin_absolu:String = chemin_absolu_fichier(&fichier_source);
     let fichier_source_dossier:String = dossier_fichier(&fichier_source);
-    println!("extension fichier source : {}", fichier_source_extension);
-    println!("nom fichier source : {}", fichier_source_nom);
-    println!("dossier fichier source : {}", fichier_source_dossier);
-    println!("chemin complet fichier source : {}", fichier_source_chemin_absolu);
     if !fichier_source.exists() { println!("Le fichier n'existe pas"); return;}
     if !formats_entrants_acceptes.contains(&&**&fichier_source_extension){ println!("Extension entrante non autorisée"); return; }
-    println!("le fichier peut être décompressé");
     match fichier_source_extension.as_str() {
          "cb7" => println!("cb7"),
-         "cbr" => compresser_images(extraire_archive_rar(&fichier_source_chemin_absolu, &fichier_source_dossier)),
+         "cbr" => compresser_images(&format_des_images, &compression_des_images, extraire_archive_rar(&fichier_source_chemin_absolu, &fichier_source_dossier), &fichier_source_nom),
          "cbz" => println!("cbz"),
          _ => println!("Extension entrante inconnue... encore ?"),
     }
 }
 
-fn compresser_images(donnees_extraction: (String, Vec<Entry>)) {
-    println!("chemin complet fichier source : {:?}", donnees_extraction);
+fn compresser_images(format_des_images: &String, compression_des_images: &String, donnees_extraction: (String, Vec<Entry>), nom_archive: &String) {
+    //println!("donnees extraction : {:?}", donnees_extraction);
+    match format_des_images.as_str() {
+        "webp" => convertir_en_webp(&donnees_extraction.0, &compression_des_images, &nom_archive),
+        _ => println!("Format d'image inconnu"),
+    }
+}
+
+fn convertir_en_webp(dossier_parent:&String, compression: &String, nom_archive: &String) {
+    // Créons le dossier cible
+    let dossier_cible = Path::new(&dossier_parent).parent().unwrap().join(nom_archive);
+
+    for entry in WalkDir::new(dossier_parent).follow_links(true).into_iter().filter_map(|e| e.ok()) {
+        let fichier_source_chemin_complet_string = entry.path().file_name().unwrap().to_str().unwrap();
+        if fichier_source_chemin_complet_string.ends_with(".jpeg") || fichier_source_chemin_complet_string.ends_with(".jpg") {
+            convertir_une_image_en_webp(&entry.path(), &dossier_cible, &compression);
+        }
+    }
+}
+
+fn convertir_une_image_en_webp(image_a_convertir: &Path, dossier_cible: &Path, compression: &String) {
+    // Chheck if target folder already exists, if not, web will refuse to convert.
+    if !dossier_cible.exists() { fs::create_dir_all(dossier_cible); }
+    let nom_fichier_cible = Path::new(image_a_convertir).file_stem().unwrap().to_str().unwrap();
+    let chemin_absolu_vers_image_cible = Path::new(dossier_cible).join(nom_fichier_cible).with_extension("webp");
+
+    let img = image::open(image_a_convertir).unwrap();
+    let (w,h) = img.dimensions();
+    // Optionally, resize the existing photo and convert back into DynamicImage
+    let size_factor = 1.0;
+    let img: DynamicImage = image::DynamicImage::ImageRgba8(
+        imageops::resize(
+            &img,
+            (w as f64 * size_factor) as u32,
+            (h as f64 * size_factor) as u32,
+            imageops::FilterType::Triangle,)
+    );
+
+    // Create the WebP encoder for the above image
+    let encoder: Encoder = Encoder::from_image(&img).unwrap();
+    // Encode the image at a specified quality 0-100
+    let webp: WebPMemory = encoder.encode(5f32);
+    // Define and write the WebP-encoded file to a given path
+    println!("fichier cible : {:?}", nom_fichier_cible);
+    std::fs::write(chemin_absolu_vers_image_cible, &*webp).unwrap();
+
+    // let fichier_source_chemin_complet = entry.path();
+    // let fichier_source_chemin_complet_string = fichier_source_chemin_complet.file_name().unwrap().to_str().unwrap();
+    // let nom_fichier_source = entry.file_name().to_str().unwrap();
+    // let nom_fichier_source_sans_extension = entry.path().file_stem().unwrap().to_str().unwrap();
+    // if fichier_source_chemin_complet_string.ends_with(".jpeg") || fichier_source_chemin_complet_string.ends_with(".jpg") {
+    //     let img = image::open(entry.into_path()).unwrap();
+    //     let (w,h) = img.dimensions();
+    //     // Optionally, resize the existing photo and convert back into DynamicImage
+    //     let size_factor = 1.0;
+    //     let img: DynamicImage = image::DynamicImage::ImageRgba8(imageops::resize(
+    //         &img,
+    //         (w as f64 * size_factor) as u32,
+    //         (h as f64 * size_factor) as u32,
+    //         imageops::FilterType::Triangle,
+    //     ));
+    //     // Create the WebP encoder for the above image
+    //     let encoder: Encoder = Encoder::from_image(&img).unwrap();
+    //     // Encode the image at a specified quality 0-100
+    //     let webp: WebPMemory = encoder.encode(5f32);
+    //     // Define and write the WebP-encoded file to a given path
+    //     //let output_path = Path::new(&entry.path().parent().unwrap().to_str()).join(entry.file_name());
+    //     let output_path = Path::new(dossier_cible.as_path()).join(nom_fichier_source_sans_extension).with_extension("webp");
+    //     println!("fichier de sortie {:?}", output_path);
+    //     //std::fs::write(&output_path, &*webp).unwrap();
 }
 
 
@@ -144,28 +209,6 @@ fn dossier_fichier(fichier: &Path) -> String {
 //     }
 // }
 //
-// fn convertir_en_webp(){
-//     // Using `image` crate, open the included .jpg file
-//     let img = image::open("/home/sacha/Projets/rs_comic_shrinker/comics/extracted/Berserk - Volume 01/Berserk - 00 p006-07 copy.jpg").unwrap();
-//     let (w,h) = img.dimensions();
-//     // Optionally, resize the existing photo and convert back into DynamicImage
-//     let size_factor = 1.0;
-//     let img: DynamicImage = image::DynamicImage::ImageRgba8(imageops::resize(
-//         &img,
-//         (w as f64 * size_factor) as u32,
-//         (h as f64 * size_factor) as u32,
-//         imageops::FilterType::Triangle,
-//     ));
-//
-//     // Create the WebP encoder for the above image
-//     let encoder: Encoder = Encoder::from_image(&img).unwrap();
-//     // Encode the image at a specified quality 0-100
-//     let webp: WebPMemory = encoder.encode(5f32);
-//     // Define and write the WebP-encoded file to a given path
-//     let output_path = Path::new("/home/sacha/Projets/rs_comic_shrinker/comics/extracted/Berserk - Volume 01").join("Berserk - 00 p006-07 copy").with_extension("webp");
-//     std::fs::write(&output_path, &*webp).unwrap();
-//     println!("image compressée");
-// }
 //
 // fn doit(src_dir: &str, dst_file: &str, method: zip::CompressionMethod) -> zip::result::ZipResult<()> {
 //     if !Path::new(src_dir).is_dir() {
