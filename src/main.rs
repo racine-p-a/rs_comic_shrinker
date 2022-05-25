@@ -1,10 +1,8 @@
 use std::{env, fs};
-use std::borrow::Borrow;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use rand::Rng;
 
 
@@ -72,7 +70,7 @@ fn compresser_dossier(extension_fichier_sortant: &String, dossier_a_compresser: 
             Err(e) => println!("Error: {:?}", e),
         }
     }
-    // todo supprimer les deux dossiers temporaires
+    fs::remove_dir_all(dossier_a_compresser);
 }
 
 fn doit(src_dir: &str, dst_file: &str, method: zip::CompressionMethod) -> zip::result::ZipResult<()> {
@@ -139,6 +137,7 @@ fn convertir_en_webp(dossier_parent:&String, compression: &&f32, nom_archive: &S
             convertir_une_image_en_webp(&entry.path(), &dossier_cible, &compression);
         }
     }
+    fs::remove_dir_all(dossier_parent);
     return dossier_cible;
 
 }
@@ -206,46 +205,3 @@ fn nom_fichier(fichier: &Path) -> String {
 fn dossier_fichier(fichier: &Path) -> String {
     return String::from(fichier.parent().unwrap().to_str().unwrap_or("dossier parent introuvable"));
 }
-
-//
-//     // VÉRIFICATIONS : // TODO Mettre un message d'erreur différent à chaque vérification.
-//     // Le fichier existe-t-il ?
-//     let fichier_existant : bool = fichier_existe(nom_fichier_source);
-//     println!("Le fichier existe-t-il : {}", fichier_existant);
-//     // L'extension du fichier est-elle acceptée ?
-//     let extension_fichier_entrant : String = extension_fichier(nom_fichier_source);
-//     println!("L'extension trouvée : {:?}", extension_fichier_entrant);
-//     let extension_entrante_valide = extension_acceptee(formats_entrants_acceptes, &extension_fichier_entrant);
-//     println!("L'extension entrante est valide : {}", extension_entrante_valide);
-//     // L'extension du fichier de sortie est-elle valide ?
-//     let extension_sortante_valide = extension_acceptee(formats_sortants_acceptes, &extension_fichier_sortant);
-//     println!("L'extension sortante est valide : {}", extension_sortante_valide);
-//     if extension_sortante_valide && extension_entrante_valide && fichier_existant {
-//         println!("on lance !");
-//         // C'est parti : -> on extraie les fichiers -> on compresse les fichiers -> on supprime les fichiers-> c'est tout
-//
-//         // 1° EXTRACTION
-//         let fichier_test = "/home/sacha/Projets/rs_comic_shrinker/comics/test_cbr.cbr";
-//         extraire_archive(extension_fichier_entrant, &fichier_test);
-//         // 1A° COMPRESSION DES IMAGES -> webp
-//         convertir_en_webp();
-//         // 2° COMPRESSION
-//         // let src_dir = "/home/sacha/Projets/rs_comic_shrinker/comics/extracted/berserk_test";
-//         // let dst_file = "/home/sacha/Projets/rs_comic_shrinker/comics/test.cbz";
-//         // for &method in [METHOD_STORED, METHOD_DEFLATED, METHOD_BZIP2].iter() {
-//         //     if method.is_none() { continue }
-//         //     match doit(src_dir, dst_file, method.unwrap()) {
-//         //         Ok(_) => println!("done: {} written to {}", src_dir, dst_file),
-//         //         Err(e) => println!("Error: {:?}", e),
-//         //     }
-//         // }
-//     }
-// }
-//
-//
-//
-//
-//
-//
-//
-
