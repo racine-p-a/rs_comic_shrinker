@@ -11,6 +11,8 @@ use std::path::Path;
 use rand::Rng;
 use unrar::Archive;
 use walkdir::{DirEntry, WalkDir};
+use image::*;
+use webp::{Encoder, WebPMemory};
 
 
 fn main() {
@@ -39,9 +41,52 @@ fn main() {
         "cbz" => extract_zip_file(&args[1], &temporary_output_folder),
         _ => println!("This archive file is not (yet) supported, sorry."),
     };
-    println!("Extraction done in this folder : {:?}", temporary_output_folder);
+
     let complete_file_list = get_complete_file_list(temporary_output_folder);
-    println!("File list : {:?}", complete_file_list);
+    match args[3].as_str() {
+        //"avif" => convert_pictures_to_avif(&complete_file_list, &args[4]),
+        //"mozjpg" => convert_pictures_to_mozjpp(&complete_file_list, &args[4]),
+        "webp" => convert_pictures_to_webp(&complete_file_list, &args[4]),
+        _ => println!("Can't convert pictures to this format : {}", &args[3])
+    };
+}
+
+fn convert_pictures_to_webp(complete_file_list: &Vec<DirEntry>, compression: &String) {
+    let extension_to_convert = ["jpeg", "jpg", "png", "webp"];
+    for file in complete_file_list {
+        if !file.path().exists() { continue; }
+        let file_extension = file.path().extension().unwrap().to_str().unwrap();
+        if !extension_to_convert.contains(&file_extension) { continue }
+
+        let parent_directory = file.path().parent().unwrap();
+        let filename = file.path().file_stem().unwrap();
+
+
+        // READING THE ORIGINAL FILE
+        let img = image::open(file.path()).unwrap();
+        let (w,h) = img.dimensions();
+        // Optionally, resize the existing photo and convert back into DynamicImage
+        let size_factor = 1.0;
+        let img: DynamicImage = image::DynamicImage::ImageRgba8(
+            imageops::resize(
+                &img,
+                (w as f64 * size_factor) as u32,
+                (h as f64 * size_factor) as u32,
+                imageops::FilterType::Triangle,)
+        );
+
+        // WRITING THE DESTINATION FILE
+        // Create the WebP encoder for the above image
+        let encoder: Encoder = Encoder::from_image(&img).unwrap();
+        // Encode the image at a specified quality 0-100
+        let webp: WebPMemory = encoder.encode(compression.parse().unwrap());
+        // Define and write the WebP-encoded file to a given path
+        let output_file = Path::new(&parent_directory).join(&filename).with_extension("webp");
+        fs::write(&output_file, &*webp).unwrap();
+
+        // CLEANING
+        fs::remove_file(file.path());
+    }
 }
 
 fn get_complete_file_list(temporary_output_folder: String) -> Vec<DirEntry> {
