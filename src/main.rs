@@ -31,8 +31,9 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 5 {
-        // TODO : Put better explanations with examples.
-        println!("Usage: program_name file_to_shrink output_file image_format image_compression");
+        println!("rs_comic_shrinker path/to/big/comic.cbr /path/to/desired/shrinked/comicc.cbz webp 1");
+        println!("Actually, you can only shrink CBZ and CBR files. More to come.");
+        println!("Actually, you will get only CBZ shrinked files. More to come.");
         return;
     }
 
