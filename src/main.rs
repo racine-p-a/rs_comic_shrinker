@@ -2,12 +2,9 @@ extern crate core;
 extern crate tar;
 extern crate walkdir;
 
-use std::env::args_os;
 use std::{env, fs, io};
-use std::collections::btree_map::Entry;
 use std::fs::File;
-use std::io::{copy, Read, stdin, stdout};
-use std::io::{Seek, Write};
+use std::io::{Read, Seek, Write};
 use std::path::Path;
 use rand::Rng;
 use unrar::Archive;
@@ -76,9 +73,15 @@ fn main() {
 fn zip_folder(temporary_output_folder: &String, output_filename: &str) {
     for &method in [METHOD_STORED, METHOD_DEFLATED, METHOD_BZIP2].iter() {
         if method.is_none() { continue }
-        doit(&temporary_output_folder.as_str(), &output_filename, method.unwrap());
+        match doit(&temporary_output_folder.as_str(), &output_filename, method.unwrap()) {
+            Ok(_) => (),
+            Err(e) => println!("Error: {:?}", e),
+        }
     }
-    fs::remove_dir_all(&temporary_output_folder);
+    match fs::remove_dir_all(&temporary_output_folder) {
+        Ok(_) => (),
+        Err(e) => println!("Error: {:?}", e),
+    }
 }
 
 fn doit(src_dir: &str, dst_file: &str, method: zip::CompressionMethod) -> zip::result::ZipResult<()> {
@@ -122,7 +125,7 @@ fn zip_dir<T>(it: &mut dyn Iterator<Item=DirEntry>, prefix: &str, writer: T, met
         }
     }
     zip.finish()?;
-    Result::Ok(())
+    Ok(())
 }
 
 
@@ -138,11 +141,11 @@ fn convert_pictures_to_webp(complete_file_list: &Vec<DirEntry>, compression: &St
 
 
         // READING THE ORIGINAL FILE
-        let img = image::open(file.path()).unwrap();
+        let img = open(file.path()).unwrap();
         let (w,h) = img.dimensions();
         // Optionally, resize the existing photo and convert back into DynamicImage
         let size_factor = 1.0;
-        let img: DynamicImage = image::DynamicImage::ImageRgba8(
+        let img: DynamicImage = DynamicImage::ImageRgba8(
             imageops::resize(
                 &img,
                 (w as f64 * size_factor) as u32,
@@ -160,7 +163,10 @@ fn convert_pictures_to_webp(complete_file_list: &Vec<DirEntry>, compression: &St
         fs::write(&output_file, &*webp).unwrap();
 
         // CLEANING
-        fs::remove_file(file.path());
+        match fs::remove_file(file.path()) {
+            Ok(_) => (),
+            Err(e) => println!("Error: {:?}", e),
+        }
     }
 }
 
@@ -180,7 +186,7 @@ fn extract_rar_file(file_to_extract: &String, temporary_output_folder: &String) 
 
 fn extract_zip_file(file_to_extract: &String, temporary_output_folder: &String) {
     let fname = Path::new(file_to_extract);
-    let file = fs::File::open(&fname).unwrap();
+    let file = File::open(&fname).unwrap();
     let mut archive = zip::ZipArchive::new(file).unwrap();
 
     for i in 0..archive.len() {
@@ -205,7 +211,7 @@ fn extract_zip_file(file_to_extract: &String, temporary_output_folder: &String) 
                     fs::create_dir_all(&p).unwrap();
                 }
             }
-            let mut outfile = fs::File::create(&outpath).unwrap();
+            let mut outfile = File::create(&outpath).unwrap();
             io::copy(&mut file, &mut outfile).unwrap();
         }
 
