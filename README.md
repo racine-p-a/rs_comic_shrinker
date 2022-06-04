@@ -17,7 +17,7 @@ git clone https://github.com/racine-p-a/rs_comic_shrinker.git
 # Move to its main folder
 cd rs_comic_shrinker
 # Get rust dependencies and compile it !
-cargo build
+cargo build --release
 # Once the code compiled, you'll find the executable in the target/debug folder. Now, you can use it as you want.
 ./target/debug/rs_comic_shrinker comic.cbz reduced_comic.cbz webp 1
 
