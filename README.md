@@ -19,12 +19,12 @@ cd rs_comic_shrinker
 # Get rust dependencies and compile it !
 cargo build
 # Once the code compiled, you'll find the executable in the target/debug folder. Now, you can use it as you want.
-./target/debug/rs_comic_shrinker /path/to/your/big/comic.cbz reduced_comic.cbz webp 1
+./target/debug/rs_comic_shrinker comic.cbz reduced_comic.cbz webp 1
 ```
 
 ## Important notes
 
-| accepted input extensions  | accepted output extensions | image compression format|
+| accepted input extensions  | accepted output extensions | image compression|
 |----------------------------|----------------------------|---|
 | `cbr`, `cbz` | `cbz` |`webp`|
 

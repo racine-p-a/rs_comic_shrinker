@@ -13,6 +13,7 @@ use image::*;
 use webp::{Encoder, WebPMemory};
 use zip::result::ZipError;
 use zip::write::FileOptions;
+use tar::Builder;
 
 const METHOD_STORED : Option<zip::CompressionMethod> = Some(zip::CompressionMethod::Stored);
 #[cfg(feature = "deflate")]
@@ -26,12 +27,12 @@ const METHOD_BZIP2 : Option<zip::CompressionMethod> = None;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "full");
-    let accepted_input_file_extensions = ["cb7", "cba", "cbr", "cbt", "cbz"];
+    let accepted_input_file_extensions = ["cb7", "cba", "cbr", "cbt", "cbz", "rar"];
     let accepted_destination_file_extensions = ["cbz"];
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 5 {
-        println!("rs_comic_shrinker path/to/big/comic.cbr /path/to/desired/shrinked/comicc.cbz webp 1");
+        println!("rs_comic_shrinker path/to/big/comic.cbr comic.cbz webp 1");
         println!("Actually, you can only shrink CBZ and CBR files. More to come.");
         println!("Actually, you will get only CBZ shrinked files. More to come.");
         return;
@@ -48,6 +49,7 @@ fn main() {
         //"cb7" => extract_7zip_file(&args[1], &temporary_output_folder), // TODO Failed to create it
         //"cba" => extract_ace_file(&args[1], &temporary_output_folder), // TODO Failed to create it
         "cbr" => extract_rar_file(&args[1], &temporary_output_folder),
+        "rar" => extract_rar_file(&args[1], &temporary_output_folder),
         //"cbt" => extract_tar_file(&args[1], &temporary_output_folder), // TODO Failed to create it
         "cbz" => extract_zip_file(&args[1], &temporary_output_folder),
         _ => println!("This archive file is not (yet) supported, sorry."),
