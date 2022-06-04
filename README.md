@@ -6,6 +6,9 @@ up to 10 times !
 Another benefit would be to convert your files to open-source format (`CBR` files uses *winrar* which is proprietary
 code).
 
+This code is fairly simple and is fair enough for me. Feel free to use it as you wish and do not be afraid to improve
+it (please share your improvements here too).
+
 ## Get it
 
 You should have the `rust` language and `cargo` (*rust dependancy manager*) installed. Get both
