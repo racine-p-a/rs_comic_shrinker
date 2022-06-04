@@ -3,7 +3,7 @@ name = "rs_comic_shrinker"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-
+repository = "https://github.com/racine-p-a/rs_comic_shrinker"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
