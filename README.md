@@ -1,7 +1,7 @@
 # rs_comic_shrinker
 
 The main objective of this code is to reduce heavily the size of your comic/manga collection. You can divide its size
-up to 10 times !
+up to 10 times ! The application itself should not weight more than few MegaBytes and use much of you CPU. 
 
 Another benefit would be to convert your files to open-source format (`CBR` files uses *winrar* which is proprietary
 code).
