@@ -1,5 +1,4 @@
 extern crate core;
-extern crate tar;
 extern crate walkdir;
 
 use std::{env, fs, io};
@@ -13,7 +12,6 @@ use image::*;
 use webp::{Encoder, WebPMemory};
 use zip::result::ZipError;
 use zip::write::FileOptions;
-use tar::Builder;
 
 const METHOD_STORED : Option<zip::CompressionMethod> = Some(zip::CompressionMethod::Stored);
 #[cfg(feature = "deflate")]
