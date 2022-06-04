@@ -20,6 +20,13 @@ cd rs_comic_shrinker
 cargo build
 # Once the code compiled, you'll find the executable in the target/debug folder. Now, you can use it as you want.
 ./target/debug/rs_comic_shrinker comic.cbz reduced_comic.cbz webp 1
+
+# BONUS
+# LINUX ONLY : You can move directly your compiled comic shrinker to your path
+sudo cp ./target/debug/rs_comic_shrinker /bin
+# You can now invoke it from any point of you computer
+cd ~ # Go to your home folder or any other location
+rs_comic_shrinker comic.cbz reduced_comic.cbz webp 1 # It is accessible here
 ```
 
 ## Important notes
